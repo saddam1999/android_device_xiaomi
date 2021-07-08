@@ -381,7 +381,7 @@ void GnssAPIClient::requestCapabilities() {
 // callbacks
 void GnssAPIClient::onCapabilitiesCb(LocationCapabilitiesMask capabilitiesMask)
 {
-   LOC_LOGD("%s]: (%" PRIu64 ")", __FUNCTION__, capabilitiesMask);
+    LOC_LOGD("%s]: (%" PRIu64 ")", __FUNCTION__, capabilitiesMask);
     mLocationCapabilitiesMask = capabilitiesMask;
     mLocationCapabilitiesCached = true;
 
