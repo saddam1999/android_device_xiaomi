@@ -9,3 +9,7 @@ allow system_app { motor_device vendor_sysfs_graphics hall_device }:chr_file rw_
 # Battery Health
 allow system_app sysfs_battery_supply:dir { search };
 allow system_app sysfs_battery_supply:file { read open getattr };
+
+# Fps Info
+allow system_app vendor_sysfs_graphics:file { getattr open read };
+allow system_app sysfs_thermal:file rw_file_perms;
