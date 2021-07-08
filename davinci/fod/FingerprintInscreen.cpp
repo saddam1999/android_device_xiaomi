@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 The LineageOS Project
+ * Copyright (C) 2019-2021 The LineageOS Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,15 +25,17 @@
 
 #include <fcntl.h>
 #include <poll.h>
+#include <sys/ioctl.h>
 #include <sys/stat.h>
-
-#define FINGERPRINT_ACQUIRED_VENDOR 6
 
 #define COMMAND_NIT 10
 #define PARAM_NIT_FOD 1
 #define PARAM_NIT_NONE 0
 
-#define TOUCH_FOD_ENABLE 10
+#define TOUCH_DEV_PATH "/dev/xiaomi-touch"
+
+#define TOUCH_MAGIC 0x5400
+#define TOUCH_IOC_SETMODE TOUCH_MAGIC + 0
 
 #define FOD_UI_PATH "/sys/devices/platform/soc/soc:qcom,dsi-display/fod_ui"
 
@@ -73,8 +75,8 @@ namespace V1_0 {
 namespace implementation {
 
 FingerprintInscreen::FingerprintInscreen() {
-    touchFeatureService = ITouchFeature::getService();
     xiaomiFingerprintService = IXiaomiFingerprint::getService();
+    touch_fd_ = android::base::unique_fd(open(TOUCH_DEV_PATH, O_RDWR));
 
     std::thread([this]() {
         int fd = open(FOD_UI_PATH, O_RDONLY);
@@ -131,39 +133,21 @@ Return<void> FingerprintInscreen::onRelease() {
 }
 
 Return<void> FingerprintInscreen::onShowFODView() {
-    touchFeatureService->setTouchMode(TOUCH_FOD_ENABLE, 1);
+    int arg[2] = {10,0};
+    ioctl(touch_fd_.get(), TOUCH_IOC_SETMODE, &arg);
+
     return Void();
 }
 
 Return<void> FingerprintInscreen::onHideFODView() {
-    touchFeatureService->resetTouchMode(TOUCH_FOD_ENABLE);
+    int arg[2] = {10,-1};
+    ioctl(touch_fd_.get(), TOUCH_IOC_SETMODE, &arg);
+
     return Void();
 }
 
 Return<bool> FingerprintInscreen::handleAcquired(int32_t acquiredInfo, int32_t vendorCode) {
-    std::lock_guard<std::mutex> _lock(mCallbackLock);
-    if (mCallback == nullptr) {
-        return false;
-    }
-
-    if (acquiredInfo == FINGERPRINT_ACQUIRED_VENDOR) {
-        if (vendorCode == 22) {
-            Return<void> ret = mCallback->onFingerDown();
-            if (!ret.isOk()) {
-                LOG(ERROR) << "FingerDown() error: " << ret.description();
-            }
-            return true;
-        }
-
-        if (vendorCode == 23) {
-            Return<void> ret = mCallback->onFingerUp();
-            if (!ret.isOk()) {
-                LOG(ERROR) << "FingerUp() error: " << ret.description();
-            }
-            return true;
-        }
-    }
-
+    LOG(ERROR) << "acquiredInfo: " << acquiredInfo << ", vendorCode: " << vendorCode;
     return false;
 }
 
@@ -184,12 +168,7 @@ Return<bool> FingerprintInscreen::shouldBoostBrightness() {
     return false;
 }
 
-Return<void> FingerprintInscreen::setCallback(const sp<IFingerprintInscreenCallback>& callback) {
-    {
-        std::lock_guard<std::mutex> _lock(mCallbackLock);
-        mCallback = callback;
-    }
-
+Return<void> FingerprintInscreen::setCallback(const sp<IFingerprintInscreenCallback>& /* callback */) {
     return Void();
 }
 
